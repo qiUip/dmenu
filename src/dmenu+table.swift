@@ -13,20 +13,20 @@ extension dmenu {
 
 		let txt = textfield()
 		txt.itemFontSize = config.itemFontSize
+		txt.fontName = config.fontName
+		txt.customTextColor = config.colors.text
+		txt.highlightColor = config.colors.highlight
 		txt.isBordered = false
 		txt.drawsBackground = false
 		txt.isEditable = false
 		txt.lineBreakMode = .byTruncatingTail
 		txt.font = .systemFont(ofSize: config.itemFontSize)
-		txt.textColor = .labelColor
 
-		let tokens =
-			searchField?.stringValue
-			.lowercased()
-			.split(whereSeparator: \.isWhitespace)
-			.compactMap { $0.isEmpty ? nil : String($0) } ?? []
-		if !tokens.isEmpty {
-			txt.attributedStringValue = txt.highlight(item: item, tokens: tokens)
+		let needle = searchField?.stringValue ?? ""
+		if !needle.isEmpty {
+			// Use stored match positions
+			let positions = matchPositions[liveIndices[row]]!
+			txt.attributedStringValue = txt.highlight(item: item, positions: positions)
 		} else {
 			txt.stringValue = item
 		}
@@ -50,7 +50,9 @@ extension dmenu {
 	}
 
 	func tableView(_: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
-		row()
+		let r = row()
+		r.colors = config.colors
+		return r
 	}
 
 	func moveSelection(offset: Int) {
@@ -82,10 +84,5 @@ extension dmenu {
 		print(filteredItems[r])
 		fflush(stdout)
 		NSApp.terminate(nil)
-	}
-
-	@objc func handleClick() {
-		guard !config.lock else { return }
-		selectCurrentRow()
 	}
 }

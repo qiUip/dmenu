@@ -11,13 +11,13 @@ final class dmenu: NSObject,
 	var searchField: searchfield!
 
 	var allItems: [String] = []
-	var allItemsBytes = [[UInt8]]()
 	var allItemsLower: [String] = []
 	var filteredItems: [String] = []
 	var allIndices = [Int]()
 	var liveIndices = [Int]()
 	var lastTokens = [Substring]()
 	var currentTokens: [Substring] = []
+	var matchPositions: [Int: [Int]] = [:]
 
 	var config: dmenu_config
 

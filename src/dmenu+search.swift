@@ -1,39 +1,4 @@
 import Cocoa
-import Darwin
-
-@inline(__always)
-private func memRange(
-	haystack: UnsafeRawBufferPointer,
-	needle: UnsafeRawBufferPointer,
-	from start: Int
-) -> (lower: Int, upper: Int)? {
-	let hCount = haystack.count
-	let nCount = needle.count
-	guard nCount > 0, start <= hCount - nCount else { return nil }
-
-	let hayRaw = haystack.baseAddress!
-	let needRaw = needle.baseAddress!
-	let first = needRaw.load(as: UInt8.self)
-	var pRaw = hayRaw.advanced(by: start)
-	let lastOk = hayRaw.advanced(by: hCount - nCount)
-	let hayTyped = hayRaw.assumingMemoryBound(to: UInt8.self)
-
-	while true {
-		let offset = hayTyped.distance(to: pRaw.assumingMemoryBound(to: UInt8.self))
-		let remain = hCount - offset
-		guard remain > 0 else { return nil }
-
-		guard let foundMut = memchr(pRaw, Int32(first), remain) else { return nil }
-		let foundRaw = UnsafeRawPointer(foundMut)
-		if foundRaw > lastOk { return nil }
-
-		if memcmp(foundRaw, needRaw, nCount) == 0 {
-			let lower = hayTyped.distance(to: foundRaw.assumingMemoryBound(to: UInt8.self))
-			return (lower, lower + nCount)
-		}
-		pRaw = foundRaw.advanced(by: 1)
-	}
-}
 
 extension dmenu {
 	func loadStdin() {
@@ -44,7 +9,6 @@ extension dmenu {
 
 		allItems = str.split(separator: "\n").map(String.init)
 		allItemsLower = allItems.map { $0.lowercased() }
-		allItemsBytes = allItemsLower.map { Array($0.utf8) }
 		allIndices = Array(allItems.indices)
 		filteredItems = allItems
 		liveIndices = allIndices
@@ -67,36 +31,43 @@ extension dmenu {
 		guard !tokens.isEmpty else {
 			filteredItems = allItems
 			liveIndices = allIndices
+			matchPositions.removeAll()
 			lastTokens = []
 			tableView.reloadData()
 			if !filteredItems.isEmpty { selectRow(index: 0) }
 			return
 		}
 
-		let searchSpace =
-			(tokens.starts(with: lastTokens) && !liveIndices.isEmpty)
-			? liveIndices
-			: allIndices
+		// Always search all indices to avoid race conditions
+		// TODO: Re-implement incremental search with proper synchronization
+		let currentSearch = tokens.joined(separator: " ")
+		let searchSpace = allIndices
 
 		Self.workQ.async {
-			let tokenBytes = tokens.map { Array($0.utf8) }
-
-			var best = [(score: Int, idx: Int)]()
+			let needle = currentSearch
+			var best = [(score: Double, idx: Int)]()
 			best.reserveCapacity(128)
+			var newMatchPositions: [Int: [Int]] = [:]
 
 			for idx in searchSpace {
-				guard
-					let score = self.matchTokens(
-						hayBytes: self.allItemsBytes[idx],
-						tokens: tokenBytes
-					)
-				else { continue }
+				let haystack = self.allItemsLower[idx]
 
-				best.append((score, idx))
+				let matchResult: (score: Double, positions: [Int])?
+				if self.config.consecutiveOnly {
+					matchResult = self.fzyMatchConsecutiveWithPositions(
+						needle: needle, haystack: haystack)
+				} else {
+					matchResult = self.fzyMatchWithPositions(needle: needle, haystack: haystack)
+				}
 
-				if best.count > 128 {
-					best.sort(by: { $0.score > $1.score })
-					best.removeLast(best.count - 128)
+				if let (score, positions) = matchResult {
+					best.append((score, idx))
+					newMatchPositions[idx] = positions
+
+					if best.count > 128 {
+						best.sort(by: { $0.score > $1.score })
+						best.removeLast(best.count - 128)
+					}
 				}
 			}
 
@@ -108,44 +79,23 @@ extension dmenu {
 			DispatchQueue.main.async {
 				self.liveIndices = newLive
 				self.filteredItems = newItems
+				self.matchPositions = newMatchPositions
 				self.lastTokens = tokens
 
 				self.tableView.beginUpdates()
 				self.tableView.reloadData()
 				self.tableView.endUpdates()
 
-				if !newItems.isEmpty { self.selectRow(index: 0) }
+				if !newItems.isEmpty {
+					self.selectRow(index: 0)
+
+					// Add auto-select logic here
+					if self.config.autoSelect && newItems.count == 1 {
+						self.selectCurrentRow()
+					}
+				}
 			}
 		}
-	}
-
-	private func matchTokens(
-		hayBytes: [UInt8],
-		tokens: [[UInt8]]
-	) -> Int? {
-		var cursor = 0
-		var score = 0
-		for tb in tokens {
-			guard
-				let r = hayBytes.withUnsafeBytes({ hPtr in
-					tb.withUnsafeBytes { nPtr in
-						memRange(
-							haystack: hPtr,
-							needle: nPtr,
-							from: cursor
-						)
-					}
-				})
-			else { return nil }
-
-			// contiguous bonus + gap penalty
-			score &+= 32  // token matched
-			score &+= (r.upper - r.lower) == tb.count ? 16 : 0
-			score &-= (r.lower - cursor) * 2  // gap penalty
-			cursor = r.upper
-		}
-		score &-= (hayBytes.count - cursor)  // prefer shorter tail after last match
-		return score
 	}
 
 	func installKeyMonitor() {

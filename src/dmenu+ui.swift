@@ -27,11 +27,11 @@ extension dmenu {
 
 		window.isOpaque = false
 		window.backgroundColor = .clear
-		window.hasShadow = true
+		window.hasShadow = false
 		window.level = .floating
 		window.titleVisibility = .hidden
 		window.titlebarAppearsTransparent = true
-		window.isMovableByWindowBackground = true
+		window.isMovableByWindowBackground = false
 
 		NSApp.setActivationPolicy(.accessory)
 		window.center()
@@ -47,57 +47,11 @@ extension dmenu {
 		rootBlur.layer?.masksToBounds = false
 		window.contentView = rootBlur
 
-		let glowLayer = CALayer()
-		glowLayer.frame = rootBlur.bounds.insetBy(dx: -3, dy: -3)
-		glowLayer.cornerRadius = borderRadius + 3
-		glowLayer.backgroundColor = NSColor.clear.cgColor
-		glowLayer.borderWidth = 1.5
-		glowLayer.borderColor = NSColor.systemCyan.withAlphaComponent(0.4).cgColor
-		glowLayer.shadowColor = NSColor.systemCyan.cgColor
-		glowLayer.shadowRadius = 15
-		glowLayer.shadowOpacity = 0.6
-		glowLayer.shadowOffset = .zero
-		rootBlur.layer?.superlayer?.insertSublayer(glowLayer, below: rootBlur.layer)
-
-		let glowAnimation = CABasicAnimation(keyPath: "shadowOpacity")
-		glowAnimation.fromValue = 0.3
-		glowAnimation.toValue = 0.8
-		glowAnimation.duration = 2.0
-		glowAnimation.autoreverses = true
-		glowAnimation.repeatCount = .infinity
-		glowLayer.add(glowAnimation, forKey: "glow")
-
-		let holoGradient = CAGradientLayer()
-		holoGradient.frame = rootBlur.bounds
-		holoGradient.cornerRadius = borderRadius
-		holoGradient.colors = [
-			NSColor.systemCyan.withAlphaComponent(0.08).cgColor,
-			NSColor.systemPurple.withAlphaComponent(0.06).cgColor,
-			NSColor.systemBlue.withAlphaComponent(0.04).cgColor,
-			NSColor.systemTeal.withAlphaComponent(0.08).cgColor,
-		]
-		holoGradient.locations = [0, 0.3, 0.7, 1.0]
-		holoGradient.startPoint = CGPoint(x: 0, y: 0)
-		holoGradient.endPoint = CGPoint(x: 1, y: 1)
-		rootBlur.layer?.addSublayer(holoGradient)
-
-		let gradientAnimation = CABasicAnimation(keyPath: "locations")
-		gradientAnimation.fromValue = [0, 0.3, 0.7, 1.0]
-		gradientAnimation.toValue = [0.2, 0.5, 0.9, 1.2]
-		gradientAnimation.duration = 4.0
-		gradientAnimation.autoreverses = true
-		gradientAnimation.repeatCount = .infinity
-		holoGradient.add(gradientAnimation, forKey: "gradientShift")
-
 		let shadowLayer = CALayer()
 		shadowLayer.frame = rootBlur.bounds
 		shadowLayer.cornerRadius = borderRadius
-		shadowLayer.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
-		shadowLayer.shadowColor = NSColor.black.cgColor
-		shadowLayer.shadowOpacity = 0.5
-		shadowLayer.shadowRadius = 30
-		shadowLayer.shadowOffset = CGSize(width: 0, height: -10)
-		rootBlur.layer?.superlayer?.insertSublayer(shadowLayer, below: rootBlur.layer)
+		shadowLayer.backgroundColor = config.colors.background.withAlphaComponent(0.5).cgColor
+		rootBlur.layer?.addSublayer(shadowLayer)
 		if !config.lock {
 			let searchAreaTopY = height - searchH
 			let searchAreaCenterY = searchAreaTopY + searchH / 2
@@ -125,12 +79,14 @@ extension dmenu {
 					width: width - leadingX - config.textPadding,
 					height: searchFieldH
 				))
+			searchField.fontName = config.fontName
 			searchField.itemFontSize = config.searchFontSize
+			searchField.customTextColor = config.colors.text
 			searchField.placeholderString = config.placeholder
 			searchField.focusRingType = .none
 			searchField.delegate = self
-			(searchField.cell as? NSSearchFieldCell)?.font = .systemFont(
-				ofSize: config.searchFontSize)
+			(searchField.cell as? NSSearchFieldCell)?.font = NSFont.preferred(
+				named: config.fontName, size: config.searchFontSize, weight: .regular)
 
 			searchField.isBordered = false
 			searchField.drawsBackground = false

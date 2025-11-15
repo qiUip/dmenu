@@ -2,6 +2,8 @@ import Cocoa
 
 final class searchfield: NSSearchField {
 	var itemFontSize: CGFloat!
+	var fontName: String?
+	var customTextColor: NSColor!
 
 	override func awakeFromNib() {
 		super.awakeFromNib()
@@ -41,16 +43,16 @@ final class searchfield: NSSearchField {
 
 	private func applyFieldEditorStyling() {
 		guard let fieldEditor = currentEditor() as? NSTextView,
-		      let textStorage = fieldEditor.textStorage
+			let textStorage = fieldEditor.textStorage
 		else { return }
 
 		let fullRange = NSRange(location: 0, length: textStorage.length)
+
 		textStorage.addAttributes(
 			[
-				NSAttributedString.Key.font: NSFont.monospacedSystemFont(
-					ofSize: itemFontSize, weight: .regular
-				),
-				NSAttributedString.Key.foregroundColor: NSColor.labelColor.withAlphaComponent(0.8),
+				NSAttributedString.Key.font: NSFont.preferred(
+					named: fontName, size: itemFontSize, weight: .regular),
+				NSAttributedString.Key.foregroundColor: customTextColor!,
 				NSAttributedString.Key.kern: 0.5,
 			], range: fullRange
 		)
@@ -61,8 +63,8 @@ final class searchfield: NSSearchField {
 		let attr = NSMutableAttributedString(string: text)
 		attr.addAttributes(
 			[
-				.font: NSFont.monospacedSystemFont(ofSize: itemFontSize, weight: .regular),
-				.foregroundColor: NSColor.labelColor.withAlphaComponent(0.8),
+				.font: NSFont.preferred(named: fontName, size: itemFontSize, weight: .regular),
+				.foregroundColor: customTextColor!,
 				.kern: 0.5,
 			], range: NSRange(location: 0, length: text.count)
 		)
@@ -74,8 +76,8 @@ final class searchfield: NSSearchField {
 		let attr = NSMutableAttributedString(string: placeholder)
 		attr.addAttributes(
 			[
-				.font: NSFont.monospacedSystemFont(ofSize: itemFontSize, weight: .regular),
-				.foregroundColor: NSColor.labelColor.withAlphaComponent(0.8),
+				.font: NSFont.preferred(named: fontName, size: itemFontSize, weight: .bold),
+				.foregroundColor: customTextColor.withAlphaComponent(0.5),
 				.kern: 0.5,
 			], range: NSRange(location: 0, length: placeholder.count)
 		)

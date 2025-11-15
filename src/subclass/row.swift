@@ -1,105 +1,18 @@
 import Cocoa
 
-private class WeakRef<T: AnyObject> {
-	weak var value: T?
-	init(_ value: T) { self.value = value }
-}
-
 final class row: NSTableRowView {
-	private var trackingArea: NSTrackingArea?
-	private static var currentHover: WeakRef<row>?
-
-	private var isHovered = false {
-		didSet {
-			guard oldValue != isHovered else { return }
-			needsDisplay = true
-		}
-	}
-
-	override func updateTrackingAreas() {
-		super.updateTrackingAreas()
-
-		if let trackingArea = trackingArea {
-			removeTrackingArea(trackingArea)
-		}
-
-		trackingArea = NSTrackingArea(
-			rect: bounds,
-			options: [.mouseEnteredAndExited, .activeInKeyWindow],
-			owner: self,
-			userInfo: nil
-		)
-		addTrackingArea(trackingArea!)
-	}
-
-	override func mouseEntered(with event: NSEvent) {
-		super.mouseEntered(with: event)
-
-		Self.currentHover?.value?.isHovered = false
-		Self.currentHover = WeakRef(self)
-		isHovered = true
-	}
-
-	override func mouseExited(with event: NSEvent) {
-		super.mouseExited(with: event)
-
-		if Self.currentHover?.value === self {
-			Self.currentHover = nil
-		}
-		isHovered = false
-	}
+	var colors: color_scheme!
 
 	override func drawSelection(in _: NSRect) {
 		guard selectionHighlightStyle != .none else { return }
-		drawRowBackground(isSelected: true)
-	}
-
-	override func drawBackground(in _: NSRect) {
-		if isHovered && !isSelected {
-			drawRowBackground(isSelected: false)
-		}
-	}
-
-	private func drawRowBackground(isSelected: Bool) {
 		let rect = bounds.insetBy(dx: 2, dy: 2)
 		let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
 
-		let isDarkMode =
-			effectiveAppearance.name == .darkAqua || effectiveAppearance.name == .vibrantDark
-				|| effectiveAppearance.name == .accessibilityHighContrastDarkAqua
+		colors.highlight.withAlphaComponent(0.25).setFill()
+		path.fill()
 
-		if isSelected {
-			if isDarkMode {
-				NSColor.controlAccentColor.withAlphaComponent(0.23).setFill()
-				path.fill()
-
-				NSColor.controlAccentColor.withAlphaComponent(0.33).setStroke()
-				path.lineWidth = 1.0
-				path.stroke()
-			} else {
-				NSColor.controlAccentColor.withAlphaComponent(0.3).setFill()
-				path.fill()
-
-				NSColor.controlAccentColor.withAlphaComponent(0.5).setStroke()
-				path.lineWidth = 1.0
-				path.stroke()
-			}
-		} else {
-			if isDarkMode {
-				NSColor.controlAccentColor.withAlphaComponent(0.1).setFill()
-				path.fill()
-
-				NSColor.controlAccentColor.withAlphaComponent(0.25).setStroke()
-				path.lineWidth = 0.5
-				path.stroke()
-			} else {
-				NSColor.controlAccentColor.withAlphaComponent(0.15).setFill()
-				path.fill()
-
-				NSColor.controlAccentColor.withAlphaComponent(0.38).setStroke()
-				path.lineWidth = 0.75
-				path.stroke()
-			}
-		}
+		colors.highlight.withAlphaComponent(0.4).setStroke()
+		path.lineWidth = 1.0
+		path.stroke()
 	}
 }
